@@ -49,6 +49,8 @@ export const attachment = t.pgTable("attachment", {
 export const account = t.pgTable(
    "account",
    {
+      // FIXME: W1 spec baseline uses `users` + `sessions`; avoid introducing `account`
+      // as an extra auth table unless the auth flow explicitly requires it.
       id: t.uuid("id").defaultRandom().primaryKey(),
       emailVerified: t.boolean("email_verified").default(false),
       hashedPassword: t.text("hashed_password").notNull(),
@@ -102,6 +104,8 @@ export const user = t.pgTable(
 export const organizer = t.pgTable(
    "organizer",
    {
+      // FIXME: W1 roles live on `users`; this extra `organizer` table is outside the
+      // baseline schema and should only remain if organizer-specific profile data is required.
       userId: t.uuid("user_id").primaryKey(),
       organizerName: t.text("organizer_name").notNull(),
       // TODO: add other organizer profile related fields
@@ -120,12 +124,14 @@ export const paymentStatus = t.pgEnum("payment_status", [
    "PENDING",
    "PAID",
    "FAILED",
+   // FIXME: `REFUNDED` is outside W1 scope; the spec only allows `PENDING | PAID | FAILED`.
    "REFUNDED",
 ]);
 
 export const payment = t.pgTable("payment", {
    id: t.uuid("id").defaultRandom().primaryKey(),
    amountIdr: priceRecordType("amount_idr").notNull(),
+   // FIXME: Payment status should be `notNull().default("PENDING")` to match the W1 payment state machine.
    status: paymentStatus(),
    ...timestamps,
 });
@@ -146,6 +152,7 @@ export const event = t.pgTable(
       ...timestamps,
    },
    (tbl) => [
+      // FIXME: Add a DB check constraint for `closed_at is null or closed_at > opened_at`.
       t.index().on(tbl.name),
       t.index().on(tbl.slug),
       t.unique(CONSTRAINT.UNIQUE_EVENT_SLUG).on(tbl.slug),
@@ -160,6 +167,7 @@ export const event = t.pgTable(
 export const eventAttachments = t.pgTable(
    "event_attachments",
    {
+      // FIXME: Attachments are outside the locked W1 baseline; keep only if they are intentionally in scope now.
       id: t.uuid("id").defaultRandom().primaryKey(),
       eventId: t.uuid("event_id").notNull(),
       attachmentId: t.uuid("attachment_id").notNull(),
@@ -242,7 +250,10 @@ export const reservation = t.pgTable(
       idUser: t.uuid("user_id").notNull(),
       idEvent: t.uuid("event_id").notNull(),
       idSeat: t.uuid("seat_id").notNull(),
+      // FIXME: This FK direction conflicts with the W1 reserve flow, which inserts the reservation
+      // first and the payment row second in the same transaction.
       idPayment: t.uuid("payment_id").notNull(),
+      // FIXME: Add a DB check constraint so `status = 'PENDING'` implies `expired_at is not null`.
       expiredAt: t.timestamp("expired_at"),
       ...timestamps,
    },
@@ -250,6 +261,8 @@ export const reservation = t.pgTable(
       t
          .uniqueIndex(CONSTRAINT.UNIQUE_ACTIVE_SEAT)
          .on(tbl.idEvent, tbl.idSeat)
+         // FIXME: Include `deleted_at is null` in the partial unique index so soft-deleted
+         // reservations do not continue blocking a seat.
          .where(sql`${tbl.status} IN ('PENDING', 'RESERVED')`),
       t.foreignKey({
          name: CONSTRAINT.RESERVATION_USER,
