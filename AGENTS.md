@@ -183,3 +183,19 @@ Changes should keep alignment with:
 3. DB constraints are explicit and implementation-ready.
 4. Endpoint/DTO contracts are coding-ready.
 5. Concurrency/failure behavior is explicit.
+
+## W1D2 Implementation Approach (Locked for this sprint)
+- Prefer thin DB operation functions with curried signature: `(dbOrTx) => (args) => result`.
+- Keep operations module-local, not global:
+  - `src/modules/auth/operations.ts`
+  - `src/modules/events/operations.ts`
+  - `src/modules/reservations/operations.ts`
+  - `src/modules/payments/operations.ts`
+- Use `DbOrTx` from `src/db/client.ts` so the same operation works with both `db` and transaction `tx`.
+- Keep operations single-purpose (mostly one query/mutation each).
+- Keep workflow orchestration in service/use-case layer (not in route handlers, not in operations).
+- Start transaction in service/use-case and pass `tx` into operations.
+- Do not start nested transaction inside operation functions.
+- Testing strategy for W1 prioritizes integration/e2e around critical flows over repository-mock unit tests.
+- If a query is reused in 3+ places, extract/refactor within module; avoid introducing generic repository/UoW in W1.
+- Guardrail: optimize for Friday ship date and correctness under concurrency.
