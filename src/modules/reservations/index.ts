@@ -1,20 +1,19 @@
-import { Hono } from "hono";
 import { z } from "zod";
-
+import { factory } from "@/config/app";
 import { ok, uuidSchema } from "@/shared/http";
 
 // Purpose: `src/modules/reservations/index.ts` is the collapsed entrypoint for
 // hold creation, confirm/cancel flows, expiry handling, and concurrency-safe
 // reservation transaction logic.
-export const reservationRoutes = new Hono();
+export const reservationRoutes = factory.createApp();
 
 export const reservationParamsSchema = z.object({
-  reservationId: uuidSchema
+  reservationId: uuidSchema,
 });
 
 export const reservationActionResponseDataSchema = z.object({
   reservationId: uuidSchema,
-  status: z.enum(["PENDING", "RESERVED", "CANCELED"]).optional()
+  status: z.enum(["PENDING", "RESERVED", "CANCELED"]).optional(),
 });
 
 export type ReservationParams = z.infer<typeof reservationParamsSchema>;
@@ -28,8 +27,8 @@ reservationRoutes.get("/reservations/:reservationId", (c) => {
   return c.json(
     ok("Fetched reservation placeholder", {
       reservationId: params.reservationId,
-      status: "PENDING" as const
-    })
+      status: "PENDING" as const,
+    }),
   );
 });
 
@@ -38,8 +37,8 @@ reservationRoutes.post("/reservations/:reservationId/cancel", (c) => {
 
   return c.json(
     ok("Canceled reservation placeholder", {
-      reservationId: params.reservationId
-    })
+      reservationId: params.reservationId,
+    }),
   );
 });
 
@@ -48,7 +47,7 @@ reservationRoutes.post("/reservations/:reservationId/confirm", (c) => {
 
   return c.json(
     ok("Confirmed reservation placeholder", {
-      reservationId: params.reservationId
-    })
+      reservationId: params.reservationId,
+    }),
   );
 });

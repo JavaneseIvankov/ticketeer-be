@@ -4,9 +4,10 @@ import type { Pool } from "pg";
 
 import { env } from "@/config/env";
 
-export type DbOrTx = NodePgDatabase<Record<string, never>> & {
-  $client: Pool;
-}
+export type DbOrTx =
+  | (NodePgDatabase<Record<string, never>> & {
+      $client: Pool;
+    })
   | PgTransaction<any, any, any>;
 
 // Purpose: `src/db/client.ts` provides the shared Drizzle client and transaction

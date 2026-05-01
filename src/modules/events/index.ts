@@ -1,29 +1,29 @@
 import { Hono } from "hono";
 import { z } from "zod";
-
+import { factory } from "@/config/app";
 import {
   isoDatetimeStringSchema,
   nullableIsoDatetimeStringSchema,
   ok,
   slugSchema,
-  uuidSchema
+  uuidSchema,
 } from "@/shared/http";
 
 // Purpose: `src/modules/events/index.ts` is the collapsed entrypoint for the
 // events domain. It groups event CRUD, publish rules, seat classes, seats, and
 // availability logic until the module is split further.
-export const eventRoutes = new Hono();
+export const eventRoutes = factory.createApp();
 
 const nonEmptyStringSchema = z.string().min(1);
 
 export const eventSlugParamsSchema = z.object({ slug: slugSchema });
 export const seatClassParamsSchema = z.object({
   slug: slugSchema,
-  seatClassId: uuidSchema
+  seatClassId: uuidSchema,
 });
 export const seatParamsSchema = z.object({
   slug: slugSchema,
-  seatId: uuidSchema
+  seatId: uuidSchema,
 });
 
 export const createEventBodySchema = z.object({
@@ -31,14 +31,14 @@ export const createEventBodySchema = z.object({
   name: nonEmptyStringSchema,
   description: nonEmptyStringSchema,
   openedAt: isoDatetimeStringSchema,
-  closedAt: nullableIsoDatetimeStringSchema
+  closedAt: nullableIsoDatetimeStringSchema,
 });
 
 export const updateEventBodySchema = createEventBodySchema;
 
 export const createSeatClassBodySchema = z.object({
   name: nonEmptyStringSchema,
-  priceIdr: z.int().min(0)
+  priceIdr: z.int().min(0),
 });
 
 export const updateSeatClassBodySchema = createSeatClassBodySchema;
@@ -50,14 +50,14 @@ export const createSeatsBodySchema = z.object({
         name: nonEmptyStringSchema,
         row: nonEmptyStringSchema,
         column: nonEmptyStringSchema,
-        classId: uuidSchema
-      })
+        classId: uuidSchema,
+      }),
     )
-    .min(1)
+    .min(1),
 });
 
 export const createEventReservationBodySchema = z.object({
-  seatId: uuidSchema
+  seatId: uuidSchema,
 });
 
 export type EventSlugParams = z.infer<typeof eventSlugParamsSchema>;
@@ -117,8 +117,8 @@ eventRoutes.get("/events/:slug/seat-classes/:seatClassId", (c) => {
   return c.json(
     ok("Fetched seat class placeholder", {
       slug: params.slug,
-      seatClassId: params.seatClassId
-    })
+      seatClassId: params.seatClassId,
+    }),
   );
 });
 
@@ -136,8 +136,8 @@ eventRoutes.patch("/events/:slug/seat-classes/:seatClassId", async (c) => {
   return c.json(
     ok("Updated seat class placeholder", {
       slug: params.slug,
-      seatClassId: params.seatClassId
-    })
+      seatClassId: params.seatClassId,
+    }),
   );
 });
 
@@ -147,8 +147,8 @@ eventRoutes.delete("/events/:slug/seat-classes/:seatClassId", (c) => {
   return c.json(
     ok("Deleted seat class placeholder", {
       slug: params.slug,
-      seatClassId: params.seatClassId
-    })
+      seatClassId: params.seatClassId,
+    }),
   );
 });
 
@@ -171,8 +171,8 @@ eventRoutes.get("/events/:slug/seats/:seatId", (c) => {
   return c.json(
     ok("Fetched seat placeholder", {
       slug: params.slug,
-      seatId: params.seatId
-    })
+      seatId: params.seatId,
+    }),
   );
 });
 
@@ -183,7 +183,7 @@ eventRoutes.post("/events/:slug/reservations", async (c) => {
   return c.json(
     ok("Created reservation placeholder", {
       slug: params.slug,
-      seatId: body.seatId
-    })
+      seatId: body.seatId,
+    }),
   );
 });
