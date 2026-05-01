@@ -1,5 +1,3 @@
-import { Hono } from "hono";
-
 import { authRoutes } from "@/modules/auth";
 import { eventRoutes } from "@/modules/events";
 import { paymentRoutes } from "@/modules/payments";

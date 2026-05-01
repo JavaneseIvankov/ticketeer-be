@@ -1,4 +1,5 @@
-import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+/** biome-ignore-all lint/suspicious/noExplicitAny: deliberate, no need for type exhaustiveness here */
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { Pool } from "pg";
 

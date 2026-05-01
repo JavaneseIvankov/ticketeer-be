@@ -305,5 +305,3 @@ export const reservation = t.pgTable(
     }),
   ],
 );
-
-export {};

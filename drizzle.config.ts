@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: env.ts cannot be used here, so use type assert */
 import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 

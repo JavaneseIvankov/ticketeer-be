@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "lint": "pnpm exec biome lint",
+    "format": "pnpm exec biome format",
     "build": "tsc",
     "start": "node dist/src/index.js",
     "db:push": "drizzle-kit push",
