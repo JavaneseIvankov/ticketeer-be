@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import { ok } from "@/shared/http";
+import { requireAuth } from "@/shared/auth";
 
 // Purpose: `src/modules/auth/index.ts` is the collapsed entrypoint for the auth
 // domain. It can temporarily hold auth schemas, queries, logic, and direct route
@@ -29,7 +30,7 @@ export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type MeResponseData = z.infer<typeof meResponseDataSchema>;
 
-authRoutes.get("/auth/me", (c) =>
+authRoutes.get("/auth/me", requireAuth, (c) =>
   c.json(ok("Fetched current user placeholder", { userId: null, role: null }))
 );
 

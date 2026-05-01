@@ -45,3 +45,25 @@ export const ok = <T>(message: string, data: T): SuccessResponse<T> => ({
   message,
   data
 });
+
+// TODO: integrate canonical error codes
+export function err<T extends string>(message: string, errorCode: T, error: {
+   code: T
+   detail: Record<string, unknown>
+}): ErrorResponse<T>
+
+export function err<T extends string>(message: string, errorCode?: T): ErrorResponse<T>
+
+export function err<T extends string>(message: string, errorCode?: T, error?: {
+   code: T
+   detail: Record<string, unknown>
+}): ErrorResponse<T> {
+   return {
+      status: 'error',
+      message: message,
+      error: {
+         code: errorCode ?? "INTERNAL_SERVER_ERROR" as T,
+         detail: error?.detail ?? {}
+      }
+   }
+}
