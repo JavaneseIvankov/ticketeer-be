@@ -6,9 +6,7 @@
     "verbatimModuleSyntax": true,
     "moduleResolution": "bundler",
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "outDir": "./dist",
