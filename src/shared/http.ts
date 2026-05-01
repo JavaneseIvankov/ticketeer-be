@@ -5,14 +5,15 @@ import { z } from "zod";
 export const uuidSchema = z.uuid();
 export const slugSchema = z.string().min(1).max(20);
 export const isoDatetimeStringSchema = z.string().datetime();
-export const nullableIsoDatetimeStringSchema = isoDatetimeStringSchema.nullable();
+export const nullableIsoDatetimeStringSchema =
+  isoDatetimeStringSchema.nullable();
 export const emptyDetailSchema = z.record(z.string(), z.unknown());
 
 export const successEnvelopeSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
     status: z.literal("success"),
     message: z.string(),
-    data: dataSchema
+    data: dataSchema,
   });
 
 export const errorEnvelopeSchema = <T extends z.ZodTypeAny>(codeSchema: T) =>
@@ -21,8 +22,8 @@ export const errorEnvelopeSchema = <T extends z.ZodTypeAny>(codeSchema: T) =>
     message: z.string(),
     error: z.object({
       code: codeSchema,
-      detail: emptyDetailSchema
-    })
+      detail: emptyDetailSchema,
+    }),
   });
 
 export type SuccessResponse<T> = {
@@ -43,27 +44,38 @@ export type ErrorResponse<TCode extends string> = {
 export const ok = <T>(message: string, data: T): SuccessResponse<T> => ({
   status: "success",
   message,
-  data
+  data,
 });
 
 // TODO: integrate canonical error codes
-export function err<T extends string>(message: string, errorCode: T, error: {
-   code: T
-   detail: Record<string, unknown>
-}): ErrorResponse<T>
+export function err<T extends string>(
+  message: string,
+  errorCode: T,
+  error: {
+    code: T;
+    detail: Record<string, unknown>;
+  },
+): ErrorResponse<T>;
 
-export function err<T extends string>(message: string, errorCode?: T): ErrorResponse<T>
+export function err<T extends string>(
+  message: string,
+  errorCode?: T,
+): ErrorResponse<T>;
 
-export function err<T extends string>(message: string, errorCode?: T, error?: {
-   code: T
-   detail: Record<string, unknown>
-}): ErrorResponse<T> {
-   return {
-      status: 'error',
-      message: message,
-      error: {
-         code: errorCode ?? "INTERNAL_SERVER_ERROR" as T,
-         detail: error?.detail ?? {}
-      }
-   }
+export function err<T extends string>(
+  message: string,
+  errorCode?: T,
+  error?: {
+    code: T;
+    detail: Record<string, unknown>;
+  },
+): ErrorResponse<T> {
+  return {
+    status: "error",
+    message: message,
+    error: {
+      code: errorCode ?? ("INTERNAL_SERVER_ERROR" as T),
+      detail: error?.detail ?? {},
+    },
+  };
 }
