@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+pnpm check:write || exit 1
+git update-index --again

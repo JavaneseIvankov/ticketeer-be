@@ -3,6 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prepare": "husky",
+    "check": "pnpm exec biome check .",
+    "check:write": "pnpm exec biome check --write .",
     "lint": "pnpm exec biome lint",
     "format": "pnpm exec biome format",
     "build": "tsc",
@@ -29,6 +32,7 @@
     "@types/node": "^20.11.17",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
+    "husky": "^9.1.7",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }
