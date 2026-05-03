@@ -9,7 +9,6 @@ const logger = rootLogger;
 export const factory = createFactory({
   initApp: (app) => {
     app.onError((err, c) => {
-      logger.error({ error: err }, "app error");
       if (err instanceof ValidationError) {
         const detail = formatValidationErrors(err.issues);
 
@@ -30,7 +29,7 @@ export const factory = createFactory({
         return err.getResponse();
       }
 
-      logger.fatal({ error: err }, "uncaught error");
+      logger.error(err, "uncaught error");
       return c.json(
         {
           status: "error",

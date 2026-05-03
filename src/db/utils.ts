@@ -120,13 +120,16 @@ export function isConstraint(error: unknown, constraint: string): boolean {
 export const dbOperation =
   (deps: { logger: Logger }) =>
   <T>(
-    options: { label?: string; args?: Record<string, unknown> },
+    options: { label: string; args?: Record<string, unknown> },
     fn: () => Promise<T>,
   ) => {
     const spanWithLog = withSpan({ logger: deps.logger });
     return tryCatch<T, never>({
       fn: () => {
-        return spanWithLog<T>(fn, options?.label ?? "unlabeled");
+        return spanWithLog<T>(fn, {
+          label: options.label,
+          args: options.args,
+        });
       },
       onError: (e) => {
         throw e; // rethrow error

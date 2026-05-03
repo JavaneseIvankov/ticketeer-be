@@ -5,18 +5,24 @@ import type { Logger } from "pino";
 
 export const withSpan =
   (deps: { logger: Logger }) =>
-  async <T>(fn: () => Promise<T>, label: string) => {
+  async <T>(
+    fn: () => Promise<T>,
+    details: { label: string; args?: Record<string, unknown> },
+  ) => {
     const start = performance.now();
-    deps.logger.debug({ label }, "span start");
+    deps.logger.debug(details, "span start");
     try {
       const res = await fn();
       const duration = performance.now() - start;
-      deps.logger.debug({ label, duration: duration.toFixed(2) }, "span end");
+      deps.logger.debug(
+        { ...details, result: res, duration: duration.toFixed(2) },
+        "span end",
+      );
       return res;
     } catch (error) {
       const duration = performance.now() - start;
       deps.logger.debug(
-        { label, duration: duration.toFixed(2), error },
+        { ...details, duration: duration.toFixed(2), error },
         "span error",
       );
       throw error; // Re-throw so tryCatch can handle it

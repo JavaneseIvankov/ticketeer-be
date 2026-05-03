@@ -9,6 +9,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(600),
+  LOG_LEVEL: z.string().default("info"),
 });
 
 export const env = envSchema.parse(process.env);
