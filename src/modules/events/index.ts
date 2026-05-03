@@ -1,12 +1,18 @@
 import { z } from "zod";
 import { factory } from "@/config/app";
+import { db } from "@/db/client";
+import { NotFoundError } from "@/db/utils";
+import { requireRole } from "@/shared/auth";
 import {
+  err,
   isoDatetimeStringSchema,
   nullableIsoDatetimeStringSchema,
   ok,
   slugSchema,
   uuidSchema,
 } from "@/shared/http";
+import { zValidator } from "@/shared/validation";
+import { createEvent } from "./operations";
 
 // Purpose: `src/modules/events/index.ts` is the collapsed entrypoint for the
 // events domain. It groups event CRUD, publish rules, seat classes, seats, and
@@ -79,11 +85,34 @@ eventRoutes.get("/events/:slug", (c) => {
   return c.json(ok("Fetched event placeholder", { slug: params.slug }));
 });
 
-eventRoutes.post("/events", async (c) => {
-  const body = createEventBodySchema.parse(await c.req.json());
-
-  return c.json(ok("Created event placeholder", { slug: body.slug }));
-});
+eventRoutes.post(
+  "/events",
+  requireRole(["ORGANIZER"]),
+  zValidator("json", createEventBodySchema),
+  async (c) => {
+    try {
+      const session = c.var.jwtPayload;
+      const body = c.req.valid("json");
+      const res = await createEvent(db)({
+        name: body.name,
+        slug: body.slug,
+        status: "DRAFT",
+        description: body.description,
+        organizerId: session.userId,
+        openedAt: body.openedAt,
+        closedAt: body.closedAt,
+      });
+      return c.json(ok("Successfully created event", { slug: res.slug }));
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        return c.json(
+          err("Event with slug already exists", "EVENT_SLUG_EXISTS"),
+        );
+      }
+      throw e;
+    }
+  },
+);
 
 eventRoutes.patch("/events/:slug", async (c) => {
   const params = eventSlugParamsSchema.parse(c.req.param());
