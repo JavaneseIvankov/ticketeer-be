@@ -4,7 +4,8 @@ import { z } from "zod";
 // helpers plus transport-level request and response utilities.
 export const uuidSchema = z.uuid();
 export const slugSchema = z.string().min(1).max(20);
-export const isoDatetimeStringSchema = z.string().datetime();
+// export const isoDatetimeStringSchema = z.string().datetime();
+export const isoDatetimeStringSchema = z.coerce.date();
 export const nullableIsoDatetimeStringSchema =
   isoDatetimeStringSchema.nullable();
 export const emptyDetailSchema = z.record(z.string(), z.unknown());
