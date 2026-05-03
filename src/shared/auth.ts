@@ -1,7 +1,7 @@
 // Purpose: `src/shared/auth.ts` holds transport-level authentication helpers
 // such as token parsing, session lookup, and request user extraction.
 
-import { hashSync } from "bcrypt-ts";
+import { compareSync, hashSync } from "bcrypt-ts";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { sign, verify } from "hono/jwt";
@@ -58,6 +58,10 @@ function isSession(payload: unknown): payload is TJwtSession {
 
 export function hashPassword(password: string) {
   return hashSync(password, 10);
+}
+
+export function isPasswordValid(password: string, hashedPassword: string) {
+  return compareSync(password, hashedPassword);
 }
 
 export function createJwtToken(

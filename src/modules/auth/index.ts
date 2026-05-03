@@ -2,8 +2,13 @@ import { z } from "zod";
 import { factory } from "@/config/app";
 import { env } from "@/config/env";
 import { db } from "@/db/client";
-import { createJwtToken, hashPassword, requireAuth } from "@/shared/auth";
-import { ok } from "@/shared/http";
+import {
+  createJwtToken,
+  hashPassword,
+  isPasswordValid,
+  requireAuth,
+} from "@/shared/auth";
+import { err, ok } from "@/shared/http";
 import { zValidator } from "@/shared/validation";
 import {
   createAccount,
@@ -64,14 +69,20 @@ authRoutes.post(
   "/auth/login",
   zValidator("json", loginBodySchema),
   async (c) => {
-    const body = c.req.valid("json");
-    const { token } = await login(body);
+    try {
+      const body = c.req.valid("json");
+      const { token } = await login(body);
 
-    return c.json(
-      ok("Logged in successfully", {
-        token,
-      }),
-    );
+      return c.json(
+        ok("Logged in successfully", {
+          token,
+        }),
+      );
+    } catch (e) {
+      if (e instanceof Error && e.message === "INVALID_PASSWORD") {
+        return c.json(err("Invalid password", "INVALID_PASSWORD"));
+      }
+    }
   },
 );
 
@@ -109,7 +120,7 @@ export const register = (payload: {
 export const login = async (payload: { email: string; password: string }) => {
   const user = await getUserByEmail(db)(payload.email);
   const account = await getAccountByUserId(db)(user.id);
-  if (account.hashedPassword !== hashPassword(payload.password)) {
+  if (!isPasswordValid(payload.password, account.hashedPassword)) {
     throw new Error("INVALID_PASSWORD");
   }
   const token = await createJwtToken(

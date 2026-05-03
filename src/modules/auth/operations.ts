@@ -5,7 +5,7 @@ import { dbOperation as makeDbOperation, NotFoundError } from "@/db/utils";
 import { rootLogger } from "@/shared/logging";
 
 const logger = rootLogger.child({ module: "auth/operations" });
-const dbOperation = makeDbOperation({ logger });
+const dbOperation = makeDbOperation({ logger: logger });
 
 export const getUserById = (db: DbOrTx) => async (id: string) => {
   return dbOperation({ label: "getUserById", args: { id } }, async () => {
