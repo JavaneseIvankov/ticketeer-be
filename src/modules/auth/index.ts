@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { factory } from "@/config/app";
 import { env } from "@/config/env";
 import { db } from "@/db/client";
@@ -17,32 +16,12 @@ import {
   getAccountByUserId,
   getUserByEmail,
 } from "./operations";
+import { loginBodySchema, registerBodySchema } from "./schemas";
 
 // Purpose: `src/modules/auth/index.ts` is the collapsed entrypoint for the auth
 // domain. It can temporarily hold auth schemas, queries, logic, and direct route
 // registration until the module is split into focused files.
 export const authRoutes = factory.createApp();
-
-export const registerBodySchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-  name: z.string().min(1),
-  role: z.enum(["ORGANIZER", "USER"]),
-});
-
-export const loginBodySchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-});
-
-export const meResponseDataSchema = z.object({
-  userId: z.string().nullable(),
-  role: z.enum(["USER", "ORGANIZER", "ADMIN"]).nullable(),
-});
-
-export type RegisterBody = z.infer<typeof registerBodySchema>;
-export type LoginBody = z.infer<typeof loginBodySchema>;
-export type MeResponseData = z.infer<typeof meResponseDataSchema>;
 
 authRoutes.get("/auth/me", requireAuth, (c) =>
   c.json(ok("Fetched current user", { userId: null, role: null })),
