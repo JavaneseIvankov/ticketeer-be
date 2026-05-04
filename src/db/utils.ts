@@ -132,11 +132,12 @@ export const dbOperation =
         });
       },
       onError: (e) => {
-        throw e; // rethrow error
+        const domainError = toDomainError(e);
+        deps.logger.error(e);
+        throw domainError;
       },
     });
   };
-
 export const isDbConnected = async (
   db: DbOrTx,
   { logger }: { logger: Logger },
