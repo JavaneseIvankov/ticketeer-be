@@ -7,11 +7,11 @@ import { requireRole } from "@/shared/auth";
 import {
   err,
   isoDatetimeStringSchema,
-  nullableIsoDatetimeStringSchema,
   ok,
   slugSchema,
   uuidSchema,
 } from "@/shared/http";
+import { isBefore } from "@/shared/utils";
 import { zValidator } from "@/shared/validation";
 import { createEvent, getEventBySlug, updateEvent } from "./operations";
 
@@ -38,7 +38,7 @@ export const createEventBodySchema = z
     name: nonEmptyStringSchema,
     description: nonEmptyStringSchema,
     openedAt: isoDatetimeStringSchema,
-    closedAt: nullableIsoDatetimeStringSchema,
+    closedAt: isoDatetimeStringSchema,
   })
   .refine((data) => !data.closedAt || data.closedAt > data.openedAt, {
     message: "Closed at must be after opened at",
@@ -51,7 +51,7 @@ export const updateEventBodySchema = z
     name: nonEmptyStringSchema,
     description: nonEmptyStringSchema,
     openedAt: isoDatetimeStringSchema,
-    closedAt: nullableIsoDatetimeStringSchema,
+    closedAt: isoDatetimeStringSchema,
   })
   .partial();
 
@@ -193,11 +193,70 @@ eventRoutes.delete("/events/:slug", (c) => {
   return c.json(ok("Deleted event placeholder", { slug: params.slug }));
 });
 
-eventRoutes.post("/events/:slug/publish", (c) => {
-  const params = eventSlugParamsSchema.parse(c.req.param());
+eventRoutes.post(
+  "/events/:slug/publish",
+  requireRole(["ORGANIZER"]),
+  zValidator("param", eventSlugParamsSchema),
+  async (c) => {
+    try {
+      const params = c.req.valid("param");
+      const event = await getEventBySlug(db)(params.slug);
+      const session = c.var.jwtPayload;
 
-  return c.json(ok("Published event placeholder", { slug: params.slug }));
-});
+      if (event.organizerId !== session.userId) {
+        return c.json(
+          err("You are not allowed to perform this action", "FORBIDDEN"),
+          403,
+        );
+      }
+
+      if (isBefore(event.closedAt, new Date())) {
+        return c.json(
+          err(
+            "Event closed at must be after current time, please fix this first",
+            "VALIDATION_ERROR",
+          ),
+          409,
+        );
+      }
+
+      // TODO: extract logic into separate predicate function
+      if (isBefore(event.closedAt, event.openedAt)) {
+        return c.json(
+          err(
+            "Event closed at must be after opened at, please fix this first",
+            "VALIDATION_ERROR",
+          ),
+          409,
+        );
+      }
+
+      if (event.status !== "DRAFT") {
+        return c.json(err("Event is not editable", "EVENT_NOT_MUTABLE"), 409);
+      }
+
+      if (event.capacity === 0) {
+        // we use capacity as a proxy for the number of seats and seat classes, so capacity update logic must work.
+        return c.json(
+          err("Event doesn't have seat, can't publish", "VALIDATION_ERROR"),
+          409,
+        );
+      }
+
+      const _ = await updateEvent(db)({
+        slug: params.slug,
+        status: "PUBLISHED",
+      });
+
+      return c.json(ok("Event successfuly published", { slug: params.slug }));
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        return c.json(err("Event with slug not found", "EVENT_NOT_FOUND"), 404);
+      }
+      throw e;
+    }
+  },
+);
 
 eventRoutes.get("/events/:slug/seat-classes", (c) => {
   eventSlugParamsSchema.parse(c.req.param());

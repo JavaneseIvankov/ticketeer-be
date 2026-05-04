@@ -2,6 +2,7 @@
 // not belong to a single business domain.
 
 import type { Logger } from "pino";
+import { date } from "zod";
 
 export const withSpan =
   (deps: { logger: Logger }) =>
@@ -53,4 +54,12 @@ export const tryCatch: TryCatch = async <T, E = never>({
 
     throw error; // or return error as E if you prefer
   }
+};
+
+export const isBefore = (date: Date, reference: Date) => {
+  return date.getTime() < reference.getTime();
+};
+
+export const isAfter = (date: Date, reference: Date) => {
+  return date.getTime() > reference.getTime();
 };
