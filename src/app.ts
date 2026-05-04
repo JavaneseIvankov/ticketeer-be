@@ -11,23 +11,24 @@ import { rootLogger } from "./shared/logging";
 // Purpose: `src/app.ts` creates the application instance, attaches shared
 // middleware later, and mounts versioned module routers without starting the server.
 export const createApp = () => {
-  const app = factory.createApp();
-  const api = factory.createApp();
+  const api = factory
+    .createApp()
+    .route("/", authRoutes)
+    .route("/", eventRoutes)
+    .route("/", reservationRoutes)
+    .route("/", paymentRoutes);
 
-  app.get("/health", async (c) => {
-    const connected = await isDbConnected(db, { logger: rootLogger });
-    if (!connected) {
-      return c.json(err("service unavailable", "SERVICE_UNAVAILABLE"));
-    }
-    return c.json(ok("OK", { connected }));
-  });
-
-  api.route("/", authRoutes);
-  api.route("/", eventRoutes);
-  api.route("/", reservationRoutes);
-  api.route("/", paymentRoutes);
-
-  app.route("/api/v1", api);
-
-  return app;
+  return factory
+    .createApp()
+    .get("/health", async (c) => {
+      const connected = await isDbConnected(db, { logger: rootLogger });
+      if (!connected) {
+        return c.json(err("service unavailable", "SERVICE_UNAVAILABLE"));
+      }
+      return c.json(ok("OK", { connected }));
+    })
+    .route("/api/v1", api);
 };
+
+export const app = createApp();
+export type AppType = typeof app;

@@ -24,26 +24,24 @@ import { loginBodySchema, registerBodySchema } from "./schemas";
 // Purpose: `src/modules/auth/index.ts` is the collapsed entrypoint for the auth
 // domain. It can temporarily hold auth schemas, queries, logic, and direct route
 // registration until the module is split into focused files.
-export const authRoutes = factory.createApp();
+export const authRoutes = factory
+  .createApp()
 
-authRoutes.get("/auth/me", requireAuth, async (c) => {
-  const session = c.var.jwtPayload;
-  const user = await getUserById(db)(session.userId);
+  .get("/auth/me", requireAuth, async (c) => {
+    const session = c.var.jwtPayload;
+    const user = await getUserById(db)(session.userId);
 
-  return c.json(
-    ok("Fetched current user", {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    }),
-  );
-});
+    return c.json(
+      ok("Fetched current user", {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }),
+    );
+  })
 
-authRoutes.post(
-  "/auth/register",
-  zValidator("json", registerBodySchema),
-  async (c) => {
+  .post("/auth/register", zValidator("json", registerBodySchema), async (c) => {
     try {
       const body = c.req.valid("json");
       const user = await register(body);
@@ -65,13 +63,9 @@ authRoutes.post(
       }
       throw e;
     }
-  },
-);
+  })
 
-authRoutes.post(
-  "/auth/login",
-  zValidator("json", loginBodySchema),
-  async (c) => {
+  .post("/auth/login", zValidator("json", loginBodySchema), async (c) => {
     try {
       const body = c.req.valid("json");
       const { token } = await login(body);
@@ -91,8 +85,7 @@ authRoutes.post(
 
       throw e;
     }
-  },
-);
+  });
 
 export const register = (payload: {
   email: string;
