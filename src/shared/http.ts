@@ -4,11 +4,28 @@ import { z } from "zod";
 // helpers plus transport-level request and response utilities.
 export const uuidSchema = z.uuid();
 export const slugSchema = z.string().min(1).max(20);
-// export const isoDatetimeStringSchema = z.string().datetime();
-export const isoDatetimeStringSchema = z.coerce.date();
-export const nullableIsoDatetimeStringSchema =
-  isoDatetimeStringSchema.nullable();
+const isoDateInputSchema = z.union([z.iso.datetime(), z.date()]);
+export const dateSchema = isoDateInputSchema.pipe(z.coerce.date());
+export const nullableDateSchema = z.union([dateSchema, z.null()]);
+export const dateValueSchema = z.date();
+export const nullableDateValueSchema = dateValueSchema.nullable();
 export const emptyDetailSchema = z.record(z.string(), z.unknown());
+export const errorCodeSchema = z.enum([
+  "VALIDATION_ERROR",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "SEAT_ALREADY_RESERVED",
+  "EVENT_NOT_MUTABLE",
+  "INVALID_RESERVATION_STATE_TRANSITION",
+  "RESERVATION_EXPIRED",
+  "RATE_LIMITED",
+  "INTERNAL_ERROR",
+  "INVALID_CREDENTIALS",
+  "EVENT_SLUG_EXISTS",
+  "EMAIL_ALREADY_REGISTERED",
+  "SERVICE_UNAVAILABLE",
+]);
 
 export const successEnvelopeSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
@@ -48,7 +65,6 @@ export const ok = <T>(message: string, data: T): SuccessResponse<T> => ({
   data,
 });
 
-// TODO: integrate canonical error codes
 export function err<T extends string>(
   message: string,
   errorCode: T,
@@ -75,7 +91,7 @@ export function err<T extends string>(
     status: "error",
     message: message,
     error: {
-      code: errorCode ?? ("INTERNAL_SERVER_ERROR" as T),
+      code: errorCode ?? ("INTERNAL_ERROR" as T),
       detail: error?.detail ?? {},
     },
   };

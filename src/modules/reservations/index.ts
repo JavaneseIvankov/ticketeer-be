@@ -1,25 +1,11 @@
-import { z } from "zod";
 import { factory } from "@/config/app";
-import { ok, uuidSchema } from "@/shared/http";
+import { ok } from "@/shared/http";
+import { reservationParamsSchema } from "./schemas";
 
 // Purpose: `src/modules/reservations/index.ts` is the collapsed entrypoint for
 // hold creation, confirm/cancel flows, expiry handling, and concurrency-safe
 // reservation transaction logic.
 export const reservationRoutes = factory.createApp();
-
-export const reservationParamsSchema = z.object({
-  reservationId: uuidSchema,
-});
-
-export const reservationActionResponseDataSchema = z.object({
-  reservationId: uuidSchema,
-  status: z.enum(["PENDING", "RESERVED", "CANCELED"]).optional(),
-});
-
-export type ReservationParams = z.infer<typeof reservationParamsSchema>;
-export type ReservationActionResponseData = z.infer<
-  typeof reservationActionResponseDataSchema
->;
 
 reservationRoutes.get("/reservations/:reservationId", (c) => {
   const params = reservationParamsSchema.parse(c.req.param());
@@ -27,6 +13,11 @@ reservationRoutes.get("/reservations/:reservationId", (c) => {
   return c.json(
     ok("Fetched reservation placeholder", {
       reservationId: params.reservationId,
+      eventId: "00000000-0000-0000-0000-000000000000",
+      seatId: "00000000-0000-0000-0000-000000000000",
+      paymentId: "00000000-0000-0000-0000-000000000000",
+      paymentStatus: "PENDING" as const,
+      expiredAt: new Date(0),
       status: "PENDING" as const,
     }),
   );
@@ -38,6 +29,7 @@ reservationRoutes.post("/reservations/:reservationId/cancel", (c) => {
   return c.json(
     ok("Canceled reservation placeholder", {
       reservationId: params.reservationId,
+      status: "CANCELED" as const,
     }),
   );
 });
@@ -48,6 +40,9 @@ reservationRoutes.post("/reservations/:reservationId/confirm", (c) => {
   return c.json(
     ok("Confirmed reservation placeholder", {
       reservationId: params.reservationId,
+      status: "RESERVED" as const,
+      paymentId: "00000000-0000-0000-0000-000000000000",
+      paymentStatus: "PAID" as const,
     }),
   );
 });

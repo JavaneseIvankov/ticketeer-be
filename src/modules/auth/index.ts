@@ -1,6 +1,8 @@
 import { factory } from "@/config/app";
 import { env } from "@/config/env";
 import { db } from "@/db/client";
+import { CONSTRAINT } from "@/db/schema";
+import { isConstraint, NotFoundError } from "@/db/utils";
 import {
   createJwtToken,
   hashPassword,
@@ -15,6 +17,7 @@ import {
   createUser,
   getAccountByUserId,
   getUserByEmail,
+  getUserById,
 } from "./operations";
 import { loginBodySchema, registerBodySchema } from "./schemas";
 
@@ -23,24 +26,45 @@ import { loginBodySchema, registerBodySchema } from "./schemas";
 // registration until the module is split into focused files.
 export const authRoutes = factory.createApp();
 
-authRoutes.get("/auth/me", requireAuth, (c) =>
-  c.json(ok("Fetched current user", { userId: null, role: null })),
-);
+authRoutes.get("/auth/me", requireAuth, async (c) => {
+  const session = c.var.jwtPayload;
+  const user = await getUserById(db)(session.userId);
+
+  return c.json(
+    ok("Fetched current user", {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }),
+  );
+});
 
 authRoutes.post(
   "/auth/register",
   zValidator("json", registerBodySchema),
   async (c) => {
-    const body = c.req.valid("json");
-    const user = await register(body);
+    try {
+      const body = c.req.valid("json");
+      const user = await register(body);
 
-    return c.json(
-      ok("User registered successfully", {
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      }),
-    );
+      return c.json(
+        ok("User registered successfully", {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        }),
+      );
+    } catch (e) {
+      if (isConstraint(e, CONSTRAINT.UNIQUE_EMAIL)) {
+        return c.json(
+          err("Email is already registered", "EMAIL_ALREADY_REGISTERED"),
+          409,
+        );
+      }
+      throw e;
+    }
   },
 );
 
@@ -58,9 +82,14 @@ authRoutes.post(
         }),
       );
     } catch (e) {
-      if (e instanceof Error && e.message === "INVALID_PASSWORD") {
-        return c.json(err("Invalid password", "INVALID_PASSWORD"));
+      if (
+        e instanceof Error &&
+        (e.message === "INVALID_PASSWORD" || e instanceof NotFoundError)
+      ) {
+        return c.json(err("Invalid credentials", "INVALID_CREDENTIALS"), 401);
       }
+
+      throw e;
     }
   },
 );
@@ -82,13 +111,12 @@ export const register = (payload: {
       role: payload.role,
     });
     if (payload.role === "ORGANIZER") {
-      const _ = await createOrganizerFn({
+      await createOrganizerFn({
         userId: userRes.id,
         organizerName: payload.name,
       });
     }
-    // FIXME: hash password before storing
-    const _ = createAccountFn({
+    await createAccountFn({
       hashedPassword: hashPassword(payload.password),
       userId: userRes.id,
     });

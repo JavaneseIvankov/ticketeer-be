@@ -2,6 +2,7 @@
 // such as token parsing, session lookup, and request user extraction.
 
 import { compareSync, hashSync } from "bcrypt-ts";
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { sign, verify } from "hono/jwt";
@@ -83,13 +84,21 @@ export function createJwtToken(
   );
 }
 
-export const requireAuth = createMiddleware<Env>(async (c, next) => {
+const unauthorizedResponse = (reason: string) =>
+  Response.json(
+    err("Unauthorized", "UNAUTHORIZED", {
+      code: "UNAUTHORIZED",
+      detail: { reason },
+    }),
+  );
+
+const authenticateRequest = async (c: Context<Env>) => {
   const header = c.req.header("Authorization");
   const token = header?.split(" ")[1];
 
   if (!token) {
     throw new HTTPException(401, {
-      res: Response.json(err("no token provided", "NO_TOKEN_PROVIDED")),
+      res: unauthorizedResponse("missing_token"),
     });
   }
 
@@ -98,44 +107,54 @@ export const requireAuth = createMiddleware<Env>(async (c, next) => {
 
     if (!isSession(verified)) {
       throw new HTTPException(401, {
-        res: Response.json(err("invalid token", "INVALID_TOKEN")),
+        res: unauthorizedResponse("invalid_session"),
       });
     }
 
     c.set("jwtPayload", verified);
-    await next();
+    return verified;
   } catch (error) {
     if (error instanceof JwtTokenExpired) {
       throw new HTTPException(401, {
-        res: Response.json(err("token expired", "TOKEN_EXPIRED")),
+        res: unauthorizedResponse("token_expired"),
       });
     }
     if (error instanceof JwtTokenSignatureMismatched) {
       throw new HTTPException(401, {
-        res: Response.json(err("invalid signature", "INVALID_SIGNATURE")),
+        res: unauthorizedResponse("invalid_signature"),
       });
     }
     if (error instanceof JwtTokenInvalid) {
       throw new HTTPException(401, {
-        res: Response.json(err("invalid token", "INVALID_TOKEN")),
+        res: unauthorizedResponse("invalid_token"),
       });
     }
 
     throw new HTTPException(500, {
-      res: Response.json(err("internal server error", "INTERNAL_SERVER_ERROR")),
+      res: Response.json(err("Internal server error", "INTERNAL_ERROR")),
     });
   }
+};
+
+export const requireAuth = createMiddleware<Env>(async (c, next) => {
+  await authenticateRequest(c);
+  await next();
 });
 
 export const requireRole = (roles: TRole[]) =>
   createMiddleware<Env>(async (c, next) => {
-    await requireAuth(c, next);
+    const session = await authenticateRequest(c);
 
-    const role = c.get("jwtPayload").role;
-
-    if (!roles.includes(role)) {
-      throw new HTTPException(401, {
-        res: Response.json(err("unauthorized", "UNAUTHORIZED")),
+    if (!roles.includes(session.role)) {
+      throw new HTTPException(403, {
+        res: Response.json(
+          err("Forbidden", "FORBIDDEN", {
+            code: "FORBIDDEN",
+            detail: { requiredRoles: roles },
+          }),
+        ),
       });
     }
+
+    await next();
   });

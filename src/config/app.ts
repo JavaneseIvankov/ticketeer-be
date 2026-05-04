@@ -1,6 +1,6 @@
 import { createFactory } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
-import type { ErrorResponse } from "@/shared/http";
+import { err } from "@/shared/http";
 import { rootLogger } from "@/shared/logging";
 import { formatValidationErrors, ValidationError } from "@/shared/validation";
 
@@ -8,36 +8,25 @@ const logger = rootLogger;
 
 export const factory = createFactory({
   initApp: (app) => {
-    app.onError((err, c) => {
-      if (err instanceof ValidationError) {
-        const detail = formatValidationErrors(err.issues);
+    app.onError((error, c) => {
+      if (error instanceof ValidationError) {
+        const detail = formatValidationErrors(error.issues);
 
         return c.json(
-          {
-            status: "error",
-            message: "Invalid request body",
-            error: {
-              code: "INVALID_REQUEST_BODY",
-              detail,
-            },
-          } satisfies ErrorResponse<"INVALID_REQUEST_BODY">,
+          err("Validation failed", "VALIDATION_ERROR", {
+            code: "VALIDATION_ERROR",
+            detail,
+          }),
           422,
         );
       }
 
-      if (err instanceof HTTPException) {
-        return err.getResponse();
+      if (error instanceof HTTPException) {
+        return error.getResponse();
       }
 
-      logger.error(err, "uncaught error");
-      return c.json(
-        {
-          status: "error",
-          message: "Internal server error",
-          error: "INTERNAL_SERVER_ERROR",
-        },
-        500,
-      );
+      logger.error({ err: error }, "uncaught error");
+      return c.json(err("Internal server error", "INTERNAL_ERROR"), 500);
     });
   },
 });

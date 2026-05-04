@@ -23,13 +23,30 @@ import {
 // events domain. It groups event CRUD, publish rules, seat classes, seats, and
 // availability logic until the module is split further.
 export const eventRoutes = factory.createApp();
+const placeholderId = "00000000-0000-0000-0000-000000000000";
 
 eventRoutes.get("/events", (c) => c.json(ok("Listed events placeholder", [])));
 
 eventRoutes.get("/events/:slug", (c) => {
   const params = eventSlugParamsSchema.parse(c.req.param());
 
-  return c.json(ok("Fetched event placeholder", { slug: params.slug }));
+  return c.json(
+    ok("Fetched event placeholder", {
+      eventId: placeholderId,
+      slug: params.slug,
+      name: "placeholder-event",
+      description: "placeholder",
+      status: "DRAFT" as const,
+      openedAt: new Date(0),
+      closedAt: null,
+      availability: {
+        capacity: 0,
+        allocated: 0,
+        held: 0,
+        available: 0,
+      },
+    }),
+  );
 });
 
 eventRoutes.post(
@@ -49,11 +66,18 @@ eventRoutes.post(
         openedAt: body.openedAt,
         closedAt: body.closedAt,
       });
-      return c.json(ok("Successfully created event", { slug: res.slug }));
+      return c.json(
+        ok("Successfully created event", {
+          eventId: res.id,
+          slug: res.slug,
+          status: res.status,
+        }),
+      );
     } catch (e) {
       if (isConstraint(e, CONSTRAINT.UNIQUE_EVENT_SLUG)) {
         return c.json(
           err("Event with slug already exists", "EVENT_SLUG_EXISTS"),
+          409,
         );
       }
       throw e;
@@ -104,16 +128,24 @@ eventRoutes.patch(
         closedAt: body.closedAt,
       });
 
-      return c.json(ok("Updated event", { slug: res.slug }));
+      return c.json(
+        ok("Updated event", {
+          eventId: res.id,
+          slug: res.slug,
+          status: res.status,
+        }),
+      );
     } catch (e) {
       if (e instanceof NotFoundError) {
-        return c.json(err("Event with slug not found", "EVENT_NOT_FOUND"), 404);
+        return c.json(err("Event with slug not found", "NOT_FOUND"), 404);
       }
       if (isConstraint(e, CONSTRAINT.UNIQUE_EVENT_SLUG)) {
         return c.json(
           err("Event with slug already exists", "EVENT_SLUG_EXISTS"),
+          409,
         );
       }
+      throw e;
     }
   },
 );
@@ -121,7 +153,12 @@ eventRoutes.patch(
 eventRoutes.delete("/events/:slug", (c) => {
   const params = eventSlugParamsSchema.parse(c.req.param());
 
-  return c.json(ok("Deleted event placeholder", { slug: params.slug }));
+  return c.json(
+    ok("Deleted event placeholder", {
+      eventId: placeholderId,
+      slug: params.slug,
+    }),
+  );
 });
 
 eventRoutes.post(
@@ -141,7 +178,7 @@ eventRoutes.post(
         );
       }
 
-      if (isBefore(event.closedAt, new Date())) {
+      if (event.closedAt && isBefore(event.closedAt, new Date())) {
         return c.json(
           err(
             "Event closed at must be after current time, please fix this first",
@@ -152,7 +189,7 @@ eventRoutes.post(
       }
 
       // TODO: extract logic into separate predicate function
-      if (isBefore(event.closedAt, event.openedAt)) {
+      if (event.closedAt && isBefore(event.closedAt, event.openedAt)) {
         return c.json(
           err(
             "Event closed at must be after opened at, please fix this first",
@@ -179,10 +216,16 @@ eventRoutes.post(
         status: "PUBLISHED",
       });
 
-      return c.json(ok("Event successfuly published", { slug: params.slug }));
+      return c.json(
+        ok("Event successfuly published", {
+          eventId: event.id,
+          slug: params.slug,
+          status: "PUBLISHED" as const,
+        }),
+      );
     } catch (e) {
       if (e instanceof NotFoundError) {
-        return c.json(err("Event with slug not found", "EVENT_NOT_FOUND"), 404);
+        return c.json(err("Event with slug not found", "NOT_FOUND"), 404);
       }
       throw e;
     }
@@ -200,17 +243,24 @@ eventRoutes.get("/events/:slug/seat-classes/:seatClassId", (c) => {
 
   return c.json(
     ok("Fetched seat class placeholder", {
-      slug: params.slug,
       seatClassId: params.seatClassId,
+      eventId: placeholderId,
+      name: "placeholder-seat-class",
+      priceIdr: 0,
     }),
   );
 });
 
 eventRoutes.post("/events/:slug/seat-classes", async (c) => {
-  const params = eventSlugParamsSchema.parse(c.req.param());
+  eventSlugParamsSchema.parse(c.req.param());
   createSeatClassBodySchema.parse(await c.req.json());
 
-  return c.json(ok("Created seat class placeholder", { slug: params.slug }));
+  return c.json(
+    ok("Created seat class placeholder", {
+      seatClassId: placeholderId,
+      eventId: placeholderId,
+    }),
+  );
 });
 
 eventRoutes.patch("/events/:slug/seat-classes/:seatClassId", async (c) => {
@@ -219,8 +269,8 @@ eventRoutes.patch("/events/:slug/seat-classes/:seatClassId", async (c) => {
 
   return c.json(
     ok("Updated seat class placeholder", {
-      slug: params.slug,
       seatClassId: params.seatClassId,
+      eventId: placeholderId,
     }),
   );
 });
@@ -230,17 +280,23 @@ eventRoutes.delete("/events/:slug/seat-classes/:seatClassId", (c) => {
 
   return c.json(
     ok("Deleted seat class placeholder", {
-      slug: params.slug,
       seatClassId: params.seatClassId,
+      eventId: placeholderId,
     }),
   );
 });
 
 eventRoutes.post("/events/:slug/seats", async (c) => {
-  const params = eventSlugParamsSchema.parse(c.req.param());
+  eventSlugParamsSchema.parse(c.req.param());
   createSeatsBodySchema.parse(await c.req.json());
 
-  return c.json(ok("Created seats placeholder", { slug: params.slug }));
+  return c.json(
+    ok("Created seats placeholder", {
+      eventId: placeholderId,
+      createdCount: 1,
+      seatIds: [placeholderId],
+    }),
+  );
 });
 
 eventRoutes.get("/events/:slug/seats", (c) => {
@@ -254,20 +310,28 @@ eventRoutes.get("/events/:slug/seats/:seatId", (c) => {
 
   return c.json(
     ok("Fetched seat placeholder", {
-      slug: params.slug,
       seatId: params.seatId,
+      eventId: placeholderId,
+      classId: placeholderId,
+      name: "placeholder-seat",
+      row: "A",
+      column: "1",
     }),
   );
 });
 
 eventRoutes.post("/events/:slug/reservations", async (c) => {
-  const params = eventSlugParamsSchema.parse(c.req.param());
+  eventSlugParamsSchema.parse(c.req.param());
   const body = createEventReservationBodySchema.parse(await c.req.json());
 
   return c.json(
     ok("Created reservation placeholder", {
-      slug: params.slug,
+      reservationId: placeholderId,
+      eventId: placeholderId,
       seatId: body.seatId,
+      paymentId: placeholderId,
+      status: "PENDING" as const,
+      expiredAt: new Date(0),
     }),
   );
 });

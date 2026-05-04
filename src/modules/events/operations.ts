@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/client";
 import { event } from "@/db/schema";
 import { dbOperation as makeDbOperation, NotFoundError } from "@/db/utils";
@@ -8,22 +8,71 @@ const logger = rootLogger.child({ module: "events/operations" });
 const dbOperation = makeDbOperation({ logger });
 
 type BaseEventInsert = Omit<typeof event.$inferInsert, "id">;
-export const createEvent = (db: DbOrTx) => async (payload: BaseEventInsert) => {
-  return dbOperation({ label: "createEvent", args: payload }, async () => {
-    const res = await db.insert(event).values(payload).returning().execute();
-    if (res.length === 0) {
-      throw new NotFoundError(`Event with slug ${payload.slug} not found`);
-    }
-    return res[0];
-  });
+type EventInsertPayload = Omit<BaseEventInsert, "openedAt" | "closedAt"> & {
+  openedAt: Date;
+  closedAt?: Date | null;
 };
 
-type BaseEventUpdate = Partial<BaseEventInsert> & { slug: string };
+const toEventInsertValues = (payload: EventInsertPayload) => {
+  const { closedAt, ...rest } = payload;
+
+  if (closedAt === null) {
+    return {
+      ...rest,
+      closedAt: sql`null`,
+    };
+  }
+
+  return {
+    ...rest,
+    closedAt: closedAt ?? sql`null`,
+  };
+};
+
+export const createEvent =
+  (db: DbOrTx) => async (payload: EventInsertPayload) => {
+    return dbOperation({ label: "createEvent", args: payload }, async () => {
+      const res = await db
+        .insert(event)
+        .values(toEventInsertValues(payload))
+        .returning()
+        .execute();
+      if (res.length === 0) {
+        throw new NotFoundError(`Event with slug ${payload.slug} not found`);
+      }
+      return res[0];
+    });
+  };
+
+type BaseEventUpdate = Partial<Omit<EventInsertPayload, "slug">> & {
+  slug: string;
+};
+
+const toEventUpdateValues = (payload: BaseEventUpdate) => {
+  const { closedAt, ...rest } = payload;
+
+  if (closedAt === undefined) {
+    return rest;
+  }
+
+  if (closedAt === null) {
+    return {
+      ...rest,
+      closedAt: sql`null`,
+    };
+  }
+
+  return {
+    ...rest,
+    closedAt,
+  };
+};
+
 export const updateEvent = (db: DbOrTx) => async (payload: BaseEventUpdate) => {
   return dbOperation({ label: "updateEvent", args: payload }, async () => {
     const res = await db
       .update(event)
-      .set(payload)
+      .set(toEventUpdateValues(payload))
       .where(eq(event.slug, payload.slug))
       .returning()
       .execute();
