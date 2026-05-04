@@ -147,11 +147,12 @@ export const event = t.pgTable(
     id: t.uuid("id").defaultRandom().primaryKey(),
     organizerId: t.uuid("organizer_id").notNull(),
     status: eventStatus().default("DRAFT").notNull(),
+    capacity: t.integer("capacity").notNull().default(0),
     slug: t.text("slug").notNull(),
     name: t.text("name").notNull(),
     description: t.text("description").notNull(),
     openedAt: t.timestamp("opened_at").notNull(),
-    closedAt: t.timestamp("closed_at"),
+    closedAt: t.timestamp("closed_at").notNull(),
     ...timestamps,
   },
   (tbl) => [

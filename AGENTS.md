@@ -44,7 +44,7 @@ Rules:
 - Event publish allowed only if:
   - event has at least one seat class
   - event has at least one seat
-  - booking window valid: `closedAt == null || closedAt > openedAt`
+  - booking window valid: `closedAt > openedAt`
 - Reservation create sets `PENDING` and `expiredAt` (default 5 minutes)
 - Confirm before expiry changes reservation to `RESERVED` and payment to `PAID` atomically
 - Expired or canceled pending reservation becomes `CANCELED`
