@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { factory } from "@/config/app";
 import { db } from "@/db/client";
-import { NotFoundError } from "@/db/utils";
+import { CONSTRAINT } from "@/db/schema";
+import { isConstraint, NotFoundError } from "@/db/utils";
 import { requireRole } from "@/shared/auth";
 import {
   err,
@@ -12,7 +13,7 @@ import {
   uuidSchema,
 } from "@/shared/http";
 import { zValidator } from "@/shared/validation";
-import { createEvent } from "./operations";
+import { createEvent, getEventBySlug, updateEvent } from "./operations";
 
 // Purpose: `src/modules/events/index.ts` is the collapsed entrypoint for the
 // events domain. It groups event CRUD, publish rules, seat classes, seats, and
@@ -31,15 +32,30 @@ export const seatParamsSchema = z.object({
   seatId: uuidSchema,
 });
 
-export const createEventBodySchema = z.object({
-  slug: nonEmptyStringSchema,
-  name: nonEmptyStringSchema,
-  description: nonEmptyStringSchema,
-  openedAt: isoDatetimeStringSchema,
-  closedAt: nullableIsoDatetimeStringSchema,
-});
+export const createEventBodySchema = z
+  .object({
+    slug: nonEmptyStringSchema,
+    name: nonEmptyStringSchema,
+    description: nonEmptyStringSchema,
+    openedAt: isoDatetimeStringSchema,
+    closedAt: nullableIsoDatetimeStringSchema,
+  })
+  .refine((data) => !data.closedAt || data.closedAt > data.openedAt, {
+    message: "Closed at must be after opened at",
+    path: ["closedAt"],
+  });
 
-export const updateEventBodySchema = createEventBodySchema;
+export const updateEventBodySchema = z
+  .object({
+    slug: nonEmptyStringSchema,
+    name: nonEmptyStringSchema,
+    description: nonEmptyStringSchema,
+    openedAt: isoDatetimeStringSchema,
+    closedAt: nullableIsoDatetimeStringSchema,
+  })
+  .partial();
+
+// export const updateEventBodySchema = createEventBodySchema;
 
 export const createSeatClassBodySchema = z.object({
   name: nonEmptyStringSchema,
@@ -104,7 +120,7 @@ eventRoutes.post(
       });
       return c.json(ok("Successfully created event", { slug: res.slug }));
     } catch (e) {
-      if (e instanceof NotFoundError) {
+      if (isConstraint(e, CONSTRAINT.UNIQUE_EVENT_SLUG)) {
         return c.json(
           err("Event with slug already exists", "EVENT_SLUG_EXISTS"),
         );
@@ -114,12 +130,62 @@ eventRoutes.post(
   },
 );
 
-eventRoutes.patch("/events/:slug", async (c) => {
-  const params = eventSlugParamsSchema.parse(c.req.param());
-  updateEventBodySchema.parse(await c.req.json());
+eventRoutes.patch(
+  "/events/:slug",
+  requireRole(["ORGANIZER"]),
+  zValidator("param", eventSlugParamsSchema),
+  zValidator("json", updateEventBodySchema),
+  async (c) => {
+    try {
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
+      const session = c.var.jwtPayload;
 
-  return c.json(ok("Updated event placeholder", { slug: params.slug }));
-});
+      const event = await getEventBySlug(db)(params.slug);
+      if (event.organizerId !== session.userId) {
+        return c.json(
+          err("You are not allowed to perform this action", "FORBIDDEN"),
+          403,
+        );
+      }
+
+      // TODO: extract logic into separate function
+      const newOpenedAt =
+        body.openedAt !== undefined ? body.openedAt : event.openedAt;
+      const newClosedAt =
+        body.closedAt !== undefined ? body.closedAt : event.closedAt;
+
+      if (newClosedAt && newClosedAt <= newOpenedAt) {
+        return c.json(
+          err("Event closed at must be after opened at", "VALIDATION_ERROR"),
+          422,
+        );
+      }
+
+      if (event.status !== "DRAFT") {
+        return c.json(err("Event is not editable", "EVENT_NOT_MUTABLE"), 409);
+      }
+
+      const res = await updateEvent(db)({
+        slug: params.slug,
+        description: body.description,
+        openedAt: body.openedAt,
+        closedAt: body.closedAt,
+      });
+
+      return c.json(ok("Updated event", { slug: res.slug }));
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        return c.json(err("Event with slug not found", "EVENT_NOT_FOUND"), 404);
+      }
+      if (isConstraint(e, CONSTRAINT.UNIQUE_EVENT_SLUG)) {
+        return c.json(
+          err("Event with slug already exists", "EVENT_SLUG_EXISTS"),
+        );
+      }
+    }
+  },
+);
 
 eventRoutes.delete("/events/:slug", (c) => {
   const params = eventSlugParamsSchema.parse(c.req.param());
