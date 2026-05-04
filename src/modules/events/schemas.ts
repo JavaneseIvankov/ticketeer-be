@@ -55,6 +55,7 @@ export const updateEventBodySchema = z
 export const createSeatClassBodySchema = z.object({
   name: nonEmptyStringSchema,
   priceIdr: z.int().min(0),
+  slug: z.string().min(1).max(20),
 });
 
 export const updateSeatClassBodySchema = createSeatClassBodySchema;

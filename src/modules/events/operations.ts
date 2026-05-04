@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import type { DbOrTx } from "@/db/client";
-import { event } from "@/db/schema";
+import { event, seatClass } from "@/db/schema";
 import { dbOperation as makeDbOperation, NotFoundError } from "@/db/utils";
 import { rootLogger } from "@/shared/logging";
 
@@ -96,3 +96,19 @@ export const getEventBySlug = (db: DbOrTx) => async (slug: string) => {
     return res[0];
   });
 };
+
+type BaseSeatClassInsert = typeof seatClass.$inferInsert;
+export const createSeatClass =
+  (db: DbOrTx) => async (payload: BaseSeatClassInsert) => {
+    return dbOperation(
+      { label: "createSeatClass", args: payload },
+      async () => {
+        const res = await db
+          .insert(seatClass)
+          .values(payload)
+          .returning()
+          .execute();
+        return res[0];
+      },
+    );
+  };

@@ -24,6 +24,7 @@ export const CONSTRAINT = {
   UNIQUE_EMAIL: "unique_email",
   UNIQUE_SEAT_LOCATION: "unique_seat_location",
   UNIQUE_EVENT_SLUG: "unique_event_slug",
+  UNIQUE_SEAT_CLASS_SLUG: "unique_seat_class_slug",
 
   UNIQUE_ACTIVE_SEAT: "unique_active_seat",
 
@@ -207,12 +208,14 @@ export const seatClass = t.pgTable(
     id: t.uuid("id").defaultRandom().primaryKey(),
     name: t.text("name").notNull(),
     priceIdr: priceRecordType("price_idr").notNull(),
+    slug: t.text("slug").notNull(),
     eventId: t.uuid("event_id").notNull(),
     ...timestamps,
   },
   (tbl) => [
     t.index().on(tbl.name),
     t.index().on(tbl.eventId),
+    t.unique(CONSTRAINT.UNIQUE_SEAT_CLASS_SLUG).on(tbl.slug, tbl.eventId),
     t
       .foreignKey({
         name: CONSTRAINT.SEAT_CLASS_EVENT,

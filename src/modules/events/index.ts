@@ -6,8 +6,14 @@ import { requireRole } from "@/shared/auth";
 import { err, ok } from "@/shared/http";
 import { isBefore } from "@/shared/utils";
 import { zValidator } from "@/shared/validation";
-import { createEvent, getEventBySlug, updateEvent } from "./operations";
 import {
+  createEvent,
+  createSeatClass,
+  getEventBySlug,
+  updateEvent,
+} from "./operations";
+import {
+  type CreateSeatClassBody,
   createEventBodySchema,
   createEventReservationBodySchema,
   createSeatClassBodySchema,
@@ -243,17 +249,52 @@ export const eventRoutes = factory
     );
   })
 
-  .post("/events/:slug/seat-classes", async (c) => {
-    eventSlugParamsSchema.parse(c.req.param());
-    createSeatClassBodySchema.parse(await c.req.json());
-
-    return c.json(
-      ok("Created seat class placeholder", {
-        seatClassId: placeholderId,
-        eventId: placeholderId,
-      }),
-    );
-  })
+  .post(
+    "/events/:slug/seat-classes",
+    requireRole(["ORGANIZER"]),
+    zValidator("param", eventSlugParamsSchema),
+    zValidator("json", createSeatClassBodySchema),
+    async (c) => {
+      try {
+        const params = c.req.valid("param");
+        const session = c.var.jwtPayload;
+        const body = c.req.valid("json");
+        const event = await getEventBySlug(db)(params.slug);
+        if (event.organizerId !== session.userId) {
+          return c.json(
+            err("You are not allowed to perform this action", "FORBIDDEN"),
+            403,
+          );
+        }
+        if (event.status !== "DRAFT") {
+          return c.json(err("Event is not editable", "EVENT_NOT_MUTABLE"), 409);
+        }
+        const res = await createSeatClass(db)({
+          name: body.name,
+          slug: body.slug,
+          eventId: event.id,
+          priceIdr: body.priceIdr,
+        });
+        return c.json(
+          ok("Successfuly created seat class", {
+            seatClassId: res.id,
+            eventId: res.eventId,
+          }),
+        );
+      } catch (e) {
+        if (e instanceof NotFoundError) {
+          return c.json(err("Event with slug not found", "NOT_FOUND"), 404);
+        }
+        if (isConstraint(e, CONSTRAINT.UNIQUE_SEAT_CLASS_SLUG)) {
+          return c.json(
+            err("Seat class with slug exists", "SEAT_SLUG_EXISTS"),
+            409,
+          );
+        }
+        throw e;
+      }
+    },
+  )
 
   .patch("/events/:slug/seat-classes/:seatClassId", async (c) => {
     const params = seatClassParamsSchema.parse(c.req.param());
