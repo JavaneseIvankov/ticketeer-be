@@ -1,6 +1,9 @@
 import "dotenv/config";
 
+import { eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { event, payment, reservation, seat } from "@/db/schema";
 
 const allowedHosts = new Set(["localhost", "127.0.0.1", "::1"]);
 const expectedDatabaseName = "ticketeer";
@@ -20,6 +23,8 @@ const appTables = [
 ] as const;
 
 let pool: Pool | undefined;
+
+const getE2eDb = () => drizzle(getE2ePool());
 
 export const isE2eDbResetEnabled = () => process.env[resetFlag] === "true";
 
@@ -74,9 +79,99 @@ export const getE2ePool = () => {
 };
 
 export const truncateAllTables = async () => {
-  const client = getE2ePool();
   const tableList = appTables.join(", ");
-  await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+  await getE2eDb().execute(
+    sql`TRUNCATE TABLE ${sql.raw(tableList)} RESTART IDENTITY CASCADE`,
+  );
+};
+
+export const setReservationExpiredAt = async (
+  reservationId: string,
+  expiredAt: Date,
+) => {
+  await getE2eDb()
+    .update(reservation)
+    .set({ expiredAt })
+    .where(eq(reservation.id, reservationId));
+};
+
+export const setEventCapacity = async (eventId: string, capacity: number) => {
+  await getE2eDb().update(event).set({ capacity }).where(eq(event.id, eventId));
+};
+
+export const insertSeat = async (input: {
+  eventId: string;
+  classId: string;
+  name?: string;
+  row?: string;
+  column?: string;
+}) => {
+  const name = input.name ?? "A-1";
+  const row = input.row ?? "A";
+  const column = input.column ?? "1";
+
+  const result = await getE2eDb()
+    .insert(seat)
+    .values({
+      name,
+      row,
+      column,
+      eventId: input.eventId,
+      classId: input.classId,
+    })
+    .returning({ id: seat.id });
+
+  return result[0].id;
+};
+
+export const insertPayment = async (input?: {
+  paymentId?: string;
+  amountIdr?: number;
+  status?: "PENDING" | "PAID" | "FAILED";
+}) => {
+  const paymentId = input?.paymentId ?? crypto.randomUUID();
+  const amountIdr = input?.amountIdr ?? 100_000;
+  const status = input?.status ?? "PENDING";
+
+  const result = await getE2eDb()
+    .insert(payment)
+    .values({
+      id: paymentId,
+      amountIdr,
+      status,
+    })
+    .returning({ id: payment.id });
+
+  return result[0].id;
+};
+
+export const insertReservation = async (input: {
+  reservationId?: string;
+  userId: string;
+  eventId: string;
+  seatId: string;
+  paymentId: string;
+  status?: "PENDING" | "RESERVED" | "CANCELED";
+  expiredAt?: Date | null;
+}) => {
+  const reservationId = input.reservationId ?? crypto.randomUUID();
+  const status = input.status ?? "PENDING";
+  const expiredAt = input.expiredAt ?? new Date(Date.now() + 5 * 60 * 1000);
+
+  const result = await getE2eDb()
+    .insert(reservation)
+    .values({
+      id: reservationId,
+      idUser: input.userId,
+      idEvent: input.eventId,
+      idSeat: input.seatId,
+      idPayment: input.paymentId,
+      status,
+      expiredAt,
+    })
+    .returning({ id: reservation.id });
+
+  return result[0].id;
 };
 
 export const closeE2ePool = async () => {

@@ -296,17 +296,21 @@ export const eventRoutes = factory
     },
   )
 
-  .patch("/events/:slug/seat-classes/:seatClassId", async (c) => {
-    const params = seatClassParamsSchema.parse(c.req.param());
-    updateSeatClassBodySchema.parse(await c.req.json());
+  .patch(
+    "/events/:slug/seat-classes/:seatClassId",
+    zValidator("param", seatClassParamsSchema),
+    zValidator("json", updateSeatClassBodySchema),
+    async (c) => {
+      const params = c.req.valid("param");
 
-    return c.json(
-      ok("Updated seat class placeholder", {
-        seatClassId: params.seatClassId,
-        eventId: placeholderId,
-      }),
-    );
-  })
+      return c.json(
+        ok("Updated seat class placeholder", {
+          seatClassId: params.seatClassId,
+          eventId: placeholderId,
+        }),
+      );
+    },
+  )
 
   .delete("/events/:slug/seat-classes/:seatClassId", (c) => {
     const params = seatClassParamsSchema.parse(c.req.param());
@@ -319,18 +323,22 @@ export const eventRoutes = factory
     );
   })
 
-  .post("/events/:slug/seats", async (c) => {
-    eventSlugParamsSchema.parse(c.req.param());
-    createSeatsBodySchema.parse(await c.req.json());
+  .post(
+    "/events/:slug/seats",
+    zValidator("param", eventSlugParamsSchema),
+    zValidator("json", createSeatsBodySchema),
+    async (c) => {
+      c.req.valid("param");
 
-    return c.json(
-      ok("Created seats placeholder", {
-        eventId: placeholderId,
-        createdCount: 1,
-        seatIds: [placeholderId],
-      }),
-    );
-  })
+      return c.json(
+        ok("Created seats placeholder", {
+          eventId: placeholderId,
+          createdCount: 1,
+          seatIds: [placeholderId],
+        }),
+      );
+    },
+  )
 
   .get("/events/:slug/seats", (c) => {
     eventSlugParamsSchema.parse(c.req.param());
@@ -353,18 +361,23 @@ export const eventRoutes = factory
     );
   })
 
-  .post("/events/:slug/reservations", async (c) => {
-    eventSlugParamsSchema.parse(c.req.param());
-    const body = createEventReservationBodySchema.parse(await c.req.json());
+  .post(
+    "/events/:slug/reservations",
+    zValidator("param", eventSlugParamsSchema),
+    zValidator("json", createEventReservationBodySchema),
+    async (c) => {
+      c.req.valid("param");
+      const body = c.req.valid("json");
 
-    return c.json(
-      ok("Created reservation placeholder", {
-        reservationId: placeholderId,
-        eventId: placeholderId,
-        seatId: body.seatId,
-        paymentId: placeholderId,
-        status: "PENDING" as const,
-        expiredAt: new Date(0),
-      }),
-    );
-  });
+      return c.json(
+        ok("Created reservation placeholder", {
+          reservationId: placeholderId,
+          eventId: placeholderId,
+          seatId: body.seatId,
+          paymentId: placeholderId,
+          status: "PENDING" as const,
+          expiredAt: new Date(0),
+        }),
+      );
+    },
+  );

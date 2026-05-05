@@ -97,4 +97,33 @@ describe("payments e2e", () => {
       }),
     );
   });
+
+  it("returns not found for an unknown payment id", async () => {
+    const owner = await registerAndLogin({
+      role: "USER",
+      name: "Payment Owner",
+    });
+
+    const response = await e2eClient.api.v1.payments[":paymentId"].$get(
+      {
+        param: { paymentId: crypto.randomUUID() },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "NOT_FOUND",
+        }),
+      }),
+    );
+  });
 });

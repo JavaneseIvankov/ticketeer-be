@@ -7,7 +7,9 @@ import {
 import { e2eClient } from "./utils/client";
 import { assertE2eDbResetEnabled } from "./utils/db";
 import {
+  createPersistedReservationFixture,
   createReservationHold,
+  expireReservationFixture,
   postReservationHold,
   registerAndLogin,
 } from "./utils/fixtures";
@@ -175,24 +177,113 @@ describe("reservations e2e", () => {
     });
   });
 
-  it("fails confirm at the strict expiry boundary", async () => {
+  it("rejects a non-owner when canceling a reservation", async () => {
+    const fixture = await createPersistedReservationFixture();
+    const otherUser = await registerAndLogin({
+      role: "USER",
+      name: "Other User",
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].cancel.$post(
+      {
+        param: { reservationId: fixture.reservationId },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${otherUser.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "FORBIDDEN",
+        }),
+      }),
+    );
+  });
+
+  it("rejects cancel for a reservation in an invalid state", async () => {
+    const fixture = await createPersistedReservationFixture({
+      reservationStatus: "RESERVED",
+      paymentStatus: "PAID",
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].cancel.$post(
+      {
+        param: { reservationId: fixture.reservationId },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${fixture.owner.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "INVALID_RESERVATION_STATE_TRANSITION",
+        }),
+      }),
+    );
+  });
+
+  it("returns not found when canceling an unknown reservation", async () => {
     const owner = await registerAndLogin({
       role: "USER",
-      name: "Reservation Owner",
+      name: "Missing Reservation Owner",
     });
-    const hold = await createReservationHold({
-      token: owner.token,
-    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].cancel.$post(
+      {
+        param: { reservationId: crypto.randomUUID() },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "NOT_FOUND",
+        }),
+      }),
+    );
+  });
+
+  it("fails confirm at the strict expiry boundary", async () => {
+    const fixture = await createPersistedReservationFixture();
+    await expireReservationFixture(fixture.reservationId);
 
     const response = await e2eClient.api.v1.reservations[
       ":reservationId"
     ].confirm.$post(
       {
-        param: { reservationId: hold.body.data.reservationId },
+        param: { reservationId: fixture.reservationId },
       },
       {
         headers: {
-          Authorization: `Bearer ${owner.token}`,
+          Authorization: `Bearer ${fixture.owner.token}`,
         },
       },
     );
@@ -204,6 +295,123 @@ describe("reservations e2e", () => {
         status: "error",
         error: expect.objectContaining({
           code: "RESERVATION_EXPIRED",
+        }),
+      }),
+    );
+  });
+
+  it("rejects anonymous callers when confirming a reservation", async () => {
+    const hold = await createReservationHold({
+      token: (await registerAndLogin({ role: "USER" })).token,
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].confirm.$post({
+      param: { reservationId: hold.body.data.reservationId },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "UNAUTHORIZED",
+        }),
+      }),
+    );
+  });
+
+  it("rejects a non-owner when confirming a reservation", async () => {
+    const fixture = await createPersistedReservationFixture();
+    const otherUser = await registerAndLogin({
+      role: "USER",
+      name: "Other User",
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].confirm.$post(
+      {
+        param: { reservationId: fixture.reservationId },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${otherUser.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "FORBIDDEN",
+        }),
+      }),
+    );
+  });
+
+  it("rejects confirm for a reservation in an invalid state", async () => {
+    const fixture = await createPersistedReservationFixture({
+      reservationStatus: "RESERVED",
+      paymentStatus: "PAID",
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].confirm.$post(
+      {
+        param: { reservationId: fixture.reservationId },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${fixture.owner.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "INVALID_RESERVATION_STATE_TRANSITION",
+        }),
+      }),
+    );
+  });
+
+  it("returns not found when confirming an unknown reservation", async () => {
+    const owner = await registerAndLogin({
+      role: "USER",
+      name: "Reservation Owner",
+    });
+
+    const response = await e2eClient.api.v1.reservations[
+      ":reservationId"
+    ].confirm.$post(
+      {
+        param: { reservationId: crypto.randomUUID() },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: expect.objectContaining({
+          code: "NOT_FOUND",
         }),
       }),
     );
